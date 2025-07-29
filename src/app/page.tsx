@@ -53,9 +53,9 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <div className="text-sm text-gray-500">
+            {/* <div className="text-sm text-gray-500">
               Powered by Farcaster & $BLITZ
-            </div>
+            </div> */}
           </div>
         </div>
       </div>

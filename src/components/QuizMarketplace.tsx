@@ -441,16 +441,6 @@ export default function QuizMarketplace() {
           >
             Trending
           </button>
-          <button
-            onClick={() => setActiveTab("categories")}
-            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "categories"
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            Categories
-          </button>
           {context?.user && (
             <button
               onClick={() => setActiveTab("my-quizzes")}
@@ -659,14 +649,14 @@ function QuizCard({
         >
           {quiz.status === "active" ? "Join Quiz" : "Coming Soon"}
         </button>
-        <button
+        {/* <button
           onClick={() => {
             // TODO: View quiz details
           }}
           className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50"
         >
           View Details
-        </button>
+        </button> */}
       </div>
     </div>
   );
