@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { sdk } from "@farcaster/frame-sdk";
 import { useAccount, useConnect } from "wagmi";
 import { Quiz, QuizMarketplace as MarketplaceData } from "~/lib/types";
+import QuizPlayer from "./QuizPlayer";
 
 // Utility functions moved outside component
 const formatTime = (date: Date) => {
@@ -104,7 +105,7 @@ export default function QuizMarketplace() {
   });
 
   const [activeTab, setActiveTab] = useState<
-    "featured" | "trending" | "categories"
+    "featured" | "trending" | "categories" | "my-quizzes"
   >("featured");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -112,6 +113,9 @@ export default function QuizMarketplace() {
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
+  const [myQuizzes, setMyQuizzes] = useState<Quiz[]>([]);
+  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [isPlayingQuiz, setIsPlayingQuiz] = useState(false);
 
   // Helper function to get the best available wallet address
   const getBestWalletAddress = useCallback(() => {
@@ -161,6 +165,24 @@ export default function QuizMarketplace() {
       const allQuizzesData = await allQuizzesResponse.json();
       console.log("All quizzes response:", allQuizzesData);
 
+      // Load user's quizzes if authenticated
+      let userQuizzes: Quiz[] = [];
+      if (context?.user?.fid) {
+        console.log("Fetching user's quizzes...");
+        try {
+          const userQuizzesResponse = await fetch(
+            `/api/quizzes?action=list&hostFid=${context.user.fid}`
+          );
+          const userQuizzesData = await userQuizzesResponse.json();
+          if (userQuizzesData.success) {
+            userQuizzes = userQuizzesData.quizzes || [];
+            console.log("User's quizzes:", userQuizzes);
+          }
+        } catch (error) {
+          console.error("Failed to load user's quizzes:", error);
+        }
+      }
+
       // Extract unique categories and cast to string[]
       const categories = [
         ...new Set(allQuizzesData.quizzes.map((q: Quiz) => q.category)),
@@ -175,6 +197,7 @@ export default function QuizMarketplace() {
           (sum: number, q: Quiz) => sum + q.currentParticipants,
           0
         ),
+        myQuizzes: userQuizzes,
       });
 
       setMarketplace({
@@ -188,13 +211,24 @@ export default function QuizMarketplace() {
         ),
         totalRewardsDistributed: "0", // TODO: Calculate from results
       });
+      setMyQuizzes(userQuizzes);
     } catch (error) {
       console.error("Failed to load marketplace data:", error);
       showToast("Failed to load marketplace data", "error");
+
+      // Set fallback data to prevent infinite loading
+      setMarketplace({
+        featuredQuizzes: [],
+        trendingQuizzes: [],
+        categories: [],
+        totalQuizzes: 0,
+        totalParticipants: 0,
+        totalRewardsDistributed: "0",
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [context?.user?.fid]);
 
   // Load data on mount
   useEffect(() => {
@@ -235,6 +269,13 @@ export default function QuizMarketplace() {
     setToast(null);
   };
 
+  const handleBackFromQuiz = () => {
+    setIsPlayingQuiz(false);
+    setSelectedQuiz(null);
+    // Refresh marketplace data
+    loadMarketplaceData();
+  };
+
   const joinQuiz = async (quiz: Quiz) => {
     if (!context?.user?.fid) {
       showToast("Please connect your wallet to join quizzes", "error");
@@ -261,9 +302,10 @@ export default function QuizMarketplace() {
 
       const result = await response.json();
       if (result.success) {
-        showToast("Successfully joined quiz!", "success");
-        // Navigate to quiz or refresh data
-        loadMarketplaceData();
+        showToast("Successfully joined quiz! Starting quiz...", "success");
+        // Navigate to quiz player
+        setSelectedQuiz(quiz);
+        setIsPlayingQuiz(true);
       } else {
         showToast(result.error || "Failed to join quiz", "error");
       }
@@ -284,6 +326,11 @@ export default function QuizMarketplace() {
     );
   }
 
+  // Show quiz player if playing a quiz
+  if (isPlayingQuiz && selectedQuiz) {
+    return <QuizPlayer quiz={selectedQuiz} onBack={handleBackFromQuiz} />;
+  }
+
   return (
     <div className="flex flex-col items-center gap-4 p-4 bg-white rounded-lg shadow-lg max-w-4xl mx-auto min-h-screen">
       {/* Toast notifications */}
@@ -299,6 +346,13 @@ export default function QuizMarketplace() {
         <p className="text-gray-600">
           Create, join, and compete in quizzes to earn $BLITZ tokens!
         </p>
+        <button
+          onClick={loadMarketplaceData}
+          disabled={loading}
+          className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-400"
+        >
+          {loading ? "Loading..." : "🔄 Refresh"}
+        </button>
       </div>
 
       {/* Wallet Status */}
@@ -397,6 +451,18 @@ export default function QuizMarketplace() {
           >
             Categories
           </button>
+          {context?.user && (
+            <button
+              onClick={() => setActiveTab("my-quizzes")}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === "my-quizzes"
+                  ? "bg-white text-blue-600 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              My Quizzes
+            </button>
+          )}
         </div>
       </div>
 
@@ -476,6 +542,26 @@ export default function QuizMarketplace() {
                       <p>Category filtering coming soon!</p>
                     </div>
                   </div>
+                )}
+              </>
+            )}
+
+            {activeTab === "my-quizzes" && (
+              <>
+                <h2 className="text-xl font-bold text-gray-800 mb-4">
+                  My Quizzes
+                </h2>
+                {myQuizzes.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>You haven&apos;t created any quizzes yet</p>
+                    <p className="text-sm mt-2">
+                      Create your first quiz to see it here!
+                    </p>
+                  </div>
+                ) : (
+                  myQuizzes.map((quiz) => (
+                    <QuizCard key={quiz.id} quiz={quiz} onJoin={joinQuiz} />
+                  ))
                 )}
               </>
             )}

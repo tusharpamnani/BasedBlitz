@@ -261,7 +261,10 @@ export default function CreateQuiz() {
 
       const result = await response.json();
       if (result.success) {
-        showToast("Quiz created successfully!", "success");
+        showToast(
+          "Quiz created successfully! Check 'My Quizzes' tab to see it.",
+          "success"
+        );
         // Reset form
         setFormData({
           title: "",

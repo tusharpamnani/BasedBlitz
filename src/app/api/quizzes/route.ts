@@ -10,12 +10,13 @@ const quizParticipants: Map<string, any[]> = new Map();
 // Initialize with sample quizzes
 const initializeSampleQuizzes = () => {
   console.log("Initializing sample quizzes...");
-  
+
   const sampleQuizzes = [
     {
       id: "quiz_1",
       title: "Crypto Knowledge Challenge",
-      description: "Test your knowledge about cryptocurrencies, blockchain, and DeFi!",
+      description:
+        "Test your knowledge about cryptocurrencies, blockchain, and DeFi!",
       hostFid: 1234,
       hostUsername: "crypto_expert",
       hostWalletAddress: "0x1234567890123456789012345678901234567890",
@@ -53,7 +54,8 @@ const initializeSampleQuizzes = () => {
     {
       id: "quiz_3",
       title: "Web3 Development Master",
-      description: "Advanced questions about smart contracts, dApps, and blockchain development",
+      description:
+        "Advanced questions about smart contracts, dApps, and blockchain development",
       hostFid: 9101,
       hostUsername: "web3_dev",
       hostWalletAddress: "0x3456789012345678901234567890123456789012",
@@ -72,15 +74,68 @@ const initializeSampleQuizzes = () => {
   ];
 
   console.log("Sample quizzes to initialize:", sampleQuizzes.length);
-  
+
   sampleQuizzes.forEach((quiz, index) => {
     console.log(`Initializing quiz ${index + 1}:`, quiz.id, quiz.title);
     quizzes.set(quiz.id, quiz);
-    quizQuestions.set(quiz.id, []);
+
+    // Add sample questions for each quiz
+    const sampleQuestions = [
+      {
+        id: `q_${quiz.id}_0`,
+        quizId: quiz.id,
+        question: "What is the primary purpose of blockchain technology?",
+        options: [
+          "To create digital currencies",
+          "To provide decentralized trust",
+          "To speed up transactions",
+          "To reduce costs",
+        ],
+        correctAnswer: "To provide decentralized trust",
+        points: 10,
+        timeLimit: 30,
+        order: 0,
+      },
+      {
+        id: `q_${quiz.id}_1`,
+        quizId: quiz.id,
+        question: "Which consensus mechanism does Bitcoin use?",
+        options: [
+          "Proof of Stake",
+          "Proof of Work",
+          "Delegated Proof of Stake",
+          "Proof of Authority",
+        ],
+        correctAnswer: "Proof of Work",
+        points: 10,
+        timeLimit: 30,
+        order: 1,
+      },
+      {
+        id: `q_${quiz.id}_2`,
+        quizId: quiz.id,
+        question: "What does DeFi stand for?",
+        options: [
+          "Decentralized Finance",
+          "Digital Finance",
+          "Distributed Finance",
+          "Direct Finance",
+        ],
+        correctAnswer: "Decentralized Finance",
+        points: 10,
+        timeLimit: 30,
+        order: 2,
+      },
+    ];
+
+    quizQuestions.set(quiz.id, sampleQuestions);
     quizParticipants.set(quiz.id, []);
   });
-  
-  console.log("Sample quizzes initialized. Total quizzes in memory:", quizzes.size);
+
+  console.log(
+    "Sample quizzes initialized. Total quizzes in memory:",
+    quizzes.size
+  );
   console.log("Available quiz IDs:", Array.from(quizzes.keys()));
 };
 
@@ -117,6 +172,16 @@ export async function GET(request: NextRequest) {
           totalQuizzes: quizzes.size,
           quizIds: Array.from(quizzes.keys()),
           sampleQuizzes: Array.from(quizzes.values()).slice(0, 3),
+          quizzesMap: Object.fromEntries(quizzes),
+        });
+
+      case "test":
+        // Simple test endpoint
+        return NextResponse.json({
+          success: true,
+          message: "Quiz API is working",
+          timestamp: new Date().toISOString(),
+          quizzesCount: quizzes.size,
         });
 
       case "get":
@@ -132,6 +197,19 @@ export async function GET(request: NextRequest) {
         }
         break;
 
+      case "questions":
+        if (quizId) {
+          const questions = quizQuestions.get(quizId);
+          if (!questions) {
+            return NextResponse.json(
+              { success: false, error: "Questions not found" },
+              { status: 404 }
+            );
+          }
+          return NextResponse.json({ success: true, questions });
+        }
+        break;
+
       case "list":
         let filteredQuizzes = Array.from(quizzes.values());
 
@@ -143,6 +221,13 @@ export async function GET(request: NextRequest) {
 
         if (status) {
           filteredQuizzes = filteredQuizzes.filter((q) => q.status === status);
+        }
+
+        // Filter by host FID if provided
+        const hostFid = searchParams.get("hostFid");
+        if (hostFid) {
+          const fid = parseInt(hostFid);
+          filteredQuizzes = filteredQuizzes.filter((q) => q.hostFid === fid);
         }
 
         // Sort by creation date (newest first)
@@ -328,7 +413,7 @@ async function createQuiz(
     prizePool,
     maxParticipants,
     currentParticipants: 0,
-    status: "draft",
+    status: "active", // Changed from "draft" to "active"
     startTime: new Date(startTime),
     endTime: new Date(endTime),
     createdAt: new Date(),
